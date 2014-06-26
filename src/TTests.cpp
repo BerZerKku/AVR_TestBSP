@@ -18,7 +18,7 @@ const TTests::SStateFSM TTests::FSM[TEST_MAX] = { 					//
 		{ &TTests::testError, 	{TEST_SOUT_BUS, TEST_SOUT_BUS} },	//
 		{ &TTests::testSoutBus, {TEST_PLIS_REG, TEST_SOUT_BUS} },	//
 		{ &TTests::testRegPlis, {TEST_DATA_BUS, TEST_PLIS_REG} }, 	//
-		{ &TTests::testDataBus, {TEST_FRAM,  	TEST_DATA_BUS} }, 	//
+		{ &TTests::testDataBus, {TEST_FRAM,	    TEST_DATA_BUS} }, 	//
 		{ &TTests::testFram, 	{TEST_EXT_BUS, 	TEST_FRAM    } }, 	//
 		{ &TTests::testExtBus,  {TEST_EXT_BUS,  TEST_EXT_BUS } } 	//
 };
@@ -97,7 +97,7 @@ uint8_t TTests::testError(uint8_t value=0) {
  *	@retval 0-бит Версия прошивки Vers.
  *	@retval 1-бит Регистр ExtSet.
  *	@retval 2-бит Регистр Init.
- *	@retval 4-бит Последовательная запись/чтение.
+ *	@retval 3-бит Последовательная запись/чтение.
  */
 uint8_t TTests::testRegPlis(uint8_t value=0) {
 	uint8_t step = 4;
@@ -118,7 +118,7 @@ uint8_t TTests::testRegPlis(uint8_t value=0) {
 			for (uint_fast8_t i = 0; i < 8; i++) {
 				tmp = plis->vers;
 				if (tmp != 255)
-					error |= 1;
+					error |= (1 << 0);
 			}
 
 			// проверка регистра ExtSet
@@ -126,7 +126,7 @@ uint8_t TTests::testRegPlis(uint8_t value=0) {
 				plis->extSet = i;
 				tmp = plis->extSet;
 				if (tmp != i)
-					error |= 2;
+					error |= (1 << 1);
 			}
 
 			// проверка регистра Init
@@ -134,7 +134,7 @@ uint8_t TTests::testRegPlis(uint8_t value=0) {
 				plis->init = static_cast<REG_INIT> (i);
 				tmp = plis->init;
 				if (tmp != i)
-					error |= 8;
+					error |= (1 << 2);
 			}
 
 			// проверка корректности адресов
@@ -145,18 +145,18 @@ uint8_t TTests::testRegPlis(uint8_t value=0) {
 			plis->bankFl = 255;
 
 			if (plis->init != 11)
-				error |= 16;
+				error |= (1 << 3);
 
 			if (plis->curAdr != 22)
-				error |= 16;
+				error |= (1 << 3);
 			plis->curAdr = 0;
 
 			if (plis->extSet != 44)
-				error |= 16;
+				error |= (1 << 3);
 			plis->extSet = 0;
 
 			if (plis->bankFl != 255)
-				error |= 16;
+				error |= (1 << 3);
 			plis->bankFl = 0;
 		}
 	}
@@ -184,11 +184,11 @@ uint8_t TTests::testDataBus(uint8_t value=0) {
 
 	SOut.setValue(TEST_DATA_BUS);
 
+	// разрешение работы с внешними устройствами
+	plis->extSet = (0 << 3) | (1 << 2);		// BL -> 0
+
 	while (step) {
 		rstExtWdt();
-
-		// разрешим работу с внешними устройствами
-		plis->extSet = (0 << 3) | (1 << 2);		// BL -> 0
 
 		if (flag) {
 			flag = false;
@@ -202,7 +202,7 @@ uint8_t TTests::testDataBus(uint8_t value=0) {
 				// проерка значения записанного в регистр BusW ПЛИС
 				tmp = plis->busW;
 				if (tmp != i)
-					error |= 1;
+					error |= (1 << 0);
 				_delay_us(10);
 
 				// проверка значения на шине BusR
@@ -214,14 +214,14 @@ uint8_t TTests::testDataBus(uint8_t value=0) {
 				t += ((tmp & 4) >> 1); // BUSW2 -> BUSR1
 				t += ((tmp & 8) >> 3); // BUSW3 -> BUSR0
 				if (t != i)
-					error |= 2;
+					error |= (1 << 1);
 				_delay_us(40);
 			}
 		}
-
-		// запрет работы с внешними устройствами
-		plis->extSet &= ~((0 << 3) | (1 << 2));		// BL -> 1
 	}
+
+	// запрет работы с внешними устройствами
+	plis->extSet &= ~((0 << 3) | (1 << 2));		// BL -> 1
 
 	if (error) {
 		printError(error);
@@ -317,7 +317,7 @@ uint8_t TTests::testExtBus(uint8_t value=0) {
 
 			// разрешим работу с внешними устройствами  и установим шину на записи
 			plis->extSet = (0 << 3) | (1 << 2);		// BL -> 0
-			plis->extSet |= (1 << 4) | (1 << 0);	// Ext_RD -> 0
+			plis->extSet |= (1 << 4) | (1 << 0);	// Ext_RD -> 1
 			if (step & 0x01) {
 				plis->extSet |= (1 << 1);
 			}
