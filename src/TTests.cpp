@@ -242,15 +242,17 @@ uint8_t TTests::testDataBus(uint8_t value=0) {
  *	@retval 0-бит Значение не совпало при считывании сразу после записи.
  *	@retval 1-бит Значение не совпало при считывании после записи всей FRAM.
  */
-uint8_t TTests::testFram(uint8_t value=0) {
+
+uint8_t TTests::testFram(uint8_t value=1) {
 	uint8_t step = 5;
 	uint8_t error = 0;
-	volatile uint8_t* ptr = (uint8_t*) (FLASH_ADR);
+	volatile uint8_t * volatile const ptr = (uint8_t*) (FLASH_ADR);
 
 	SOut.setValue(TEST_FRAM);
 	plis->init = REG_INIT_FRAM_ENABLE;
 
 	while(step) {
+		error = 0;
 		rstExtWdt();
 
 		if (flag) {
@@ -258,27 +260,24 @@ uint8_t TTests::testFram(uint8_t value=0) {
 			step--;
 			SOut.tglMask(TEST_FRAM);
 
-
 			// проверка чтение/запись одного байта данных
-			ptr = (uint8_t*) (FLASH_ADR);
+			// ^ (i >> 8) - надо для того, чтобы в память не писались
+			// повторяющиеся куски кода
 			for(uint16_t i = 0; i < FLASH_SIZE; i++) {
-				uint8_t tmp = static_cast<uint8_t>  (i + value);
-				*ptr = tmp;
-				if (*ptr != tmp) {
+				uint8_t val = (i + value) ^ (i >> 8);
+				ptr[i] = val;
+				if (val != ptr[i]) {
 					error |= 1;
 				}
-				ptr++;
 				rstExtWdt();
 			}
 
 			// проверка чтения всей памяти
-			ptr = (uint8_t*) (FLASH_ADR);
 			for(uint16_t i = 0; i < FLASH_SIZE; i++) {
-				uint8_t tmp = static_cast<uint8_t>  (i + value);
-				if (*ptr != tmp) {
+				uint8_t val = (i + value) ^ (i >> 8);
+				if (val != ptr[i]) {
 					error |= 2;
 				}
-				ptr++;
 				rstExtWdt();
 			}
 		}
