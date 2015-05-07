@@ -9,6 +9,7 @@
 #define TTESTS_H_
 
 #include <avr/io.h>
+#include <avr/pgmspace.h>
 #include <stdint.h>
 #include "TSoutBus.h"
 
@@ -64,22 +65,26 @@ private:
 	/// Указатель на функцию теста класса TTests
 	typedef uint8_t (TTests::*pTest) (uint8_t time);
 
+	/// Массив значений для вычисления CRC-8.
+	static const uint8_t crc8[256];
+
 	/// Номера тестов блока БСП
 	enum TESTS {
-		TEST_ERROR 		= 0,	///< Вывод сообщения ошибки теста
-		TEST_SOUT_BUS	= 1,	///< Проверка шины SOut
-		TEST_PLIS_REG	= 2,	///< Проверка регистров ПЛИС
-		TEST_DATA_BUS	= 3 ,	///< Проверка шин данных BusW/BusR
-		TEST_FRAM		= 4,	///< Проверка чтения/записи FRAM
-		TEST_EXT_BUS	= 5,	///< Проверка внешней шины данных/адреса
-		TEST_MAX				///< Максимальное кол-во тестов
+		TEST_ERROR 		= 0,	///< Вывод сообщения ошибки теста.
+		TEST_SOUT_BUS	= 1,	///< Проверка шины SOut.
+		TEST_PLIS_REG	= 2,	///< Проверка регистров ПЛИС.
+		TEST_DATA_BUS	= 3,	///< Проверка шин данных BusW/BusR.
+		TEST_FRAM		= 4,	///< Проверка чтения/записи FRAM.
+		TEST_2RAM		= 5,	///< Проверка чтения/записи 2RAM.
+		TEST_EXT_BUS	= 6,	///< Проверка внешней шины данных/адреса.
+		TEST_MAX				///< Максимальное кол-во тестов.
 	};
 
 	/// Возможные переходы в FSM
 	enum FSM_NEXT {
-		FSM_NEXT_NO_ERROR 	= 0,///< Тест закончился без ошибок
-		FSM_NEXT_ERROR		= 1,///< Тест закончился с ошибой
-		FSM_NEXT_MAX			///< Максимальное кол-во переходов
+		FSM_NEXT_NO_ERROR 	= 0,///< Тест закончился без ошибок.
+		FSM_NEXT_ERROR		= 1,///< Тест закончился с ошибой.
+		FSM_NEXT_MAX			///< Максимальное кол-во переходов.
 	};
 
 	/// Используемые значения для регистра init ПЛИС
@@ -113,31 +118,34 @@ private:
 	};
 
 	// АДРЕСА РЕГИСТРОВ И ПЕРЕМЕННЫХ ВО ВНЕШНЕЙ ПАМЯТИ
-	static const uint16_t RAM_ADR	  =	0x3000;		///< Начальный адрес 2RAM
-	static const uint16_t PLIS_ADR   =	0x7000;		///< Начальный адрес ПЛИС
-	static const uint16_t FLASH_ADR  =	0x8000;		///< Начальный адрес FLASH
-	static const uint16_t FLASH_SIZE =	0x8000;		///< Размер памяти FLASH
+	static const uint16_t RAM_ADR	 =	0x3000;		///< Начальный адрес 2RAM.
+	static const uint16_t RAM_SIZE	 =	0x0800;		///< Размер памяти 2RAM.
+	static const uint16_t PLIS_ADR   =	0x7000;		///< Начальный адрес ПЛИС.
+	static const uint16_t FLASH_ADR  =	0x8000;		///< Начальный адрес FLASH.
+	static const uint16_t FLASH_SIZE =	0x8000;		///< Размер памяти FLASH.
 
 	// СТРУКТУРЫ РЕГИСТРОВ И ПЕРЕМЕННЫХ ВО ВНЕШНЕЙ ПАМЯТИ
-	volatile SPlisRegister *plis;					///< Регистры ПЛИС
-	volatile S2RamRegister *ram;					///< Параметры 2RAM
+	volatile SPlisRegister *plis;					///< Регистры ПЛИС.
+	volatile S2RamRegister *ram;					///< Параметры 2RAM.
 
-	static const SStateFSM FSM[TEST_MAX];			///< FSM
+	static const SStateFSM FSM[TEST_MAX];			///< FSM.
 
-	volatile bool flag;								///< флаг цикла
-	TESTS curTest;									///< Текущий тест
-	uint8_t error;									///< Ошибки теста
+	volatile bool flag;								///< Флаг цикла.
+	TESTS curTest;									///< Текущий тест.
+	uint8_t error;									///< Ошибки теста.
 
 
 	// ТЕСТЫ
-	uint8_t testSoutBus(uint8_t value);				// Тест шины SOut
-	uint8_t testRegPlis(uint8_t value);				// Тест ПЛИС
-	uint8_t testDataBus(uint8_t value);				// Тест шин BusR, BusW
-	uint8_t testFram(uint8_t value);				// Тест чтения\записи FRAM
-	uint8_t testExtBus(uint8_t value);				// Тест внешней шины
-	uint8_t testError(uint8_t value);				// Вывод сообщения ошибки
+	uint8_t testSoutBus(uint8_t value);				// Тест шины SOut.
+	uint8_t testRegPlis(uint8_t value);				// Тест ПЛИС.
+	uint8_t testDataBus(uint8_t value);				// Тест шин BusR, BusW.
+	uint8_t testFram(uint8_t value);				// Тест чтения\записи FRAM.
+	uint8_t test2Ram(uint8_t value);				// Тест чтения\записи 2RAM.
+	uint8_t testExtBus(uint8_t value);				// Тест внешней шины.
+	uint8_t testError(uint8_t value);				// Вывод сообщения ошибки.
 
-	// Вывод кода ошибки на шину SOut
+
+	// Вывод кода ошибки на шину SOut.
 	uint8_t printError(uint8_t value);
 
 	/**	Сброс внешнего сторожевого таймера, записью в 2RAM.

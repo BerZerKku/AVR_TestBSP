@@ -1,2 +1,13 @@
-html/
-Debug/
+/html
+/man
+/Debug/src
+/Debug/MyTests
+/Release/src
+*.eep
+*.elf
+*.lss
+*.map
+*.d
+*.o
+makefile
+*.mk
