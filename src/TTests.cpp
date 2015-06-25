@@ -17,9 +17,9 @@
 const TTests::SStateFSM TTests::FSM[TEST_MAX] = { 					//
 		{ &TTests::testError, 	{TEST_SOUT_BUS, TEST_SOUT_BUS} },	//
 		{ &TTests::testSoutBus, {TEST_PLIS_REG, TEST_SOUT_BUS} },	//
-		{ &TTests::testRegPlis, {TEST_DATA_BUS, TEST_PLIS_REG} }, 	//
-		{ &TTests::testDataBus, {TEST_FRAM,	    TEST_DATA_BUS} }, 	//
-		{ &TTests::testFram, 	{TEST_2RAM, 	TEST_FRAM    } }, 	//
+		{ &TTests::testRegPlis, {TEST_DATA_BUS,	TEST_PLIS_REG} }, 	//
+		{ &TTests::testDataBus, {TEST_FRAM,	    TEST_DATA_BUS} }, 	// нет у ГВ
+		{ &TTests::testFram, 	{TEST_2RAM, 	TEST_FRAM    } }, 	// нет, TODO переделать под ГВ
 		{ &TTests::test2Ram,	{TEST_EXT_BUS,	TEST_2RAM 	 } },	//
 		{ &TTests::testExtBus,  {TEST_EXT_BUS,  TEST_EXT_BUS } } 	//
 };
@@ -81,13 +81,15 @@ void TTests::main() {
 uint8_t TTests::testSoutBus(uint8_t value) {
 	uint8_t step = 16;
 
-	while (step) {
+	while (1) {
 		rstExtWdt();
 
 		if (flag) {
+			if (step == 0) break;
+
 			flag = false;
+			SOut.setValue(1 << ((step-1) % 8));
 			step--;
-			SOut.setValue(1 << (step % 8));
 		}
 	}
 
@@ -106,10 +108,12 @@ uint8_t TTests::testError(uint8_t value=0) {
 
 	SOut.setValue(value);
 
-	while(step) {
+	while(1) {
 		rstExtWdt();
 
 		if (flag) {
+			if (step == 0) break;
+
 			flag = false;
 			step--;
 		}
@@ -143,10 +147,12 @@ uint8_t TTests::testRegPlis(uint8_t value=0) {
 
 	SOut.setValue(TEST_PLIS_REG);
 
-	while (step) {
+	while (1) {
 		rstExtWdt();
 
 		if (flag) {
+			if (step == 0) break;
+
 			flag = false;
 			step--;
 			SOut.tglMask(TEST_PLIS_REG);
@@ -224,36 +230,38 @@ uint8_t TTests::testDataBus(uint8_t value=0) {
 	// разрешение работы с внешними устройствами
 	plis->extSet = (0 << 3) | (1 << 2);		// BL -> 0
 
-	while (step) {
+	while (1) {
 		rstExtWdt();
 
 		if (flag) {
+			if (step == 0) break;
+
 			flag = false;
 			step--;
 			SOut.tglMask(TEST_DATA_BUS);
 
 
-			for (uint8_t i = 0; i < 255; i++) {
-				plis->busW = i;
-
-				// проерка значения записанного в регистр BusW ПЛИС
-				tmp = plis->busW;
-				if (tmp != i)
-					error |= (1 << 0);
-				_delay_us(10);
-
-				// проверка значения на шине BusR
-				tmp = plis->busR;
-				// на проверочной плате BUSW0 -> BUSR3, .., BUSW3 -> BUSR0
-				uint8_t t = (tmp & 0xF0); // старшие разряды остаются как были
-				t += ((tmp & 1) << 3); // BUSW0 -> BUSR3
-				t += ((tmp & 2) << 1); // BUSW1 -> BUSR2
-				t += ((tmp & 4) >> 1); // BUSW2 -> BUSR1
-				t += ((tmp & 8) >> 3); // BUSW3 -> BUSR0
-				if (t != i)
-					error |= (1 << 1);
-				_delay_us(40);
-			}
+//			for (uint8_t i = 0; i < 255; i++) {
+//				plis->busW = i;
+//
+//				// проерка значения записанного в регистр BusW ПЛИС
+//				tmp = plis->busW;
+//				if (tmp != i)
+//					error |= (1 << 0);
+//				_delay_us(10);
+//
+//				// проверка значения на шине BusR
+//				tmp = plis->busR;
+//				// на проверочной плате BUSW0 -> BUSR3, .., BUSW3 -> BUSR0
+//				uint8_t t = (tmp & 0xF0); // старшие разряды остаются как были
+//				t += ((tmp & 1) << 3); // BUSW0 -> BUSR3
+//				t += ((tmp & 2) << 1); // BUSW1 -> BUSR2
+//				t += ((tmp & 4) >> 1); // BUSW2 -> BUSR1
+//				t += ((tmp & 8) >> 3); // BUSW3 -> BUSR0
+//				if (t != i)
+//					error |= (1 << 1);
+//				_delay_us(40);
+//			}
 		}
 	}
 
@@ -289,10 +297,12 @@ uint8_t TTests::testFram(uint8_t value=1) {
 	SOut.setValue(TEST_FRAM);
 	plis->init = REG_INIT_FRAM_ENABLE;
 
-	while(step) {
+	while(1) {
 		rstExtWdt();
 
 		if (flag) {
+			if (step == 0) break;
+
 			flag = false;
 			step--;
 			SOut.tglMask(TEST_FRAM);
@@ -300,27 +310,27 @@ uint8_t TTests::testFram(uint8_t value=1) {
 			// проверка чтение/запись одного байта данных
 			// ^ (i >> 8) - надо для того, чтобы в память не писались
 			// повторяющиеся куски кода
-			val = step;
-			for(uint16_t i = 0; i < FLASH_SIZE; i++) {
-				uint8_t tmp = val ^ i;
-				val = pgm_read_byte(&crc8[tmp]);
-				ptr[i] = val;
-				if (val != ptr[i]) {
-					error |= 1;
-				}
-				rstExtWdt();
-			}
-
-			// проверка чтения всей памяти
-			val = step;
-			for(uint16_t i = 0; i < FLASH_SIZE; i++) {
-				uint8_t tmp = val ^ i;
-				val = pgm_read_byte(&crc8[tmp]);
-				if (val != ptr[i]) {
-					error |= 2;
-				}
-				rstExtWdt();
-			}
+//			val = step;
+//			for(uint16_t i = 0; i < FLASH_SIZE; i++) {
+//				uint8_t tmp = val ^ i;
+//				val = pgm_read_byte(&crc8[tmp]);
+//				ptr[i] = val;
+//				if (val != ptr[i]) {
+//					error |= 1;
+//				}
+//				rstExtWdt();
+//			}
+//
+//			// проверка чтения всей памяти
+//			val = step;
+//			for(uint16_t i = 0; i < FLASH_SIZE; i++) {
+//				uint8_t tmp = val ^ i;
+//				val = pgm_read_byte(&crc8[tmp]);
+//				if (val != ptr[i]) {
+//					error |= 2;
+//				}
+//				rstExtWdt();
+//			}
 		}
 	}
 
@@ -353,10 +363,12 @@ uint8_t TTests::test2Ram(uint8_t value=1) {
 
 	SOut.setValue(TEST_2RAM);
 
-	while(step) {
+	while(1) {
 		rstExtWdt();
 
 		if (flag) {
+			if (step == 0) break;
+
 			flag = false;
 			step--;
 			SOut.tglMask(TEST_2RAM);
@@ -409,10 +421,12 @@ uint8_t TTests::testExtBus(uint8_t value=0) {
 
 	SOut.setValue(TEST_EXT_BUS);
 
-	while(step) {
+	while(1) {
 		rstExtWdt();
 
 		if (flag) {
+			if (step == 0) break;
+
 			flag = false;
 			step--;
 			SOut.tglMask(TEST_EXT_BUS);
@@ -445,10 +459,12 @@ uint8_t TTests::printError(uint8_t value) {
 
 	SOut.setValue(value);
 
-	while(step) {
+	while(1) {
 		rstExtWdt();
 
 		if (flag) {
+			if (step == 0) break;
+
 			flag = false;
 			step--;
 		}

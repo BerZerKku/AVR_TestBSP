@@ -8,88 +8,84 @@
 #include <avr/io.h>
 #include <stdint.h>
 
+
+/// Соответствие ножек МК и сигнализации.
+typedef struct {
+	volatile uint8_t *port;	///< Порт МК.
+	uint8_t pin;			///< Номер вывода порта.
+	bool inv;				///< Инверсия сигнала (true - есть, false - Нет)
+} SPort;
+
 /**	\brief Класс работы с шиной сигналов SOut (неисправности/аварии).
  *
  *
  */
 class TSoutBus
 {
-	
+	/// Количество задейстованных ножек сигнализации
+	static const uint8_t s_u8NumPorts = 8;
+	/// Расположение ножек сигнализации
+	static const SPort s_stPorts[s_u8NumPorts];
 public:
 	
-// Светодиод аварии зажигается нулем, остальные единицей
-	void setAlarm() 	{ PORTB &= ~(1 << PB7);}
-	void clrAlarm() 	{ PORTB |= (1 << PB7); }
-	void tglAlarm() 	{ PORTB ^= (1 << PB7); }
+	/** Конструктор
+	 *
+	 * 	Производится настройка необходимых портов на выход и установка низкого
+	 * 	логического уровня.
+	 */
+	TSoutBus();
 	
-	void setWarning() 	{ PORTB |= (1 << PB6); }
-	void clrWarning() 	{ PORTB &= ~(1 << PB6);}
-	void tglWarning() 	{ PORTB ^= (1 << PB6); }
-	
-	void setAlarmPrd() 	{ PORTB |= (1 << PB5); }
-	void clrAlarmPrd() 	{ PORTB &= ~(1 << PB5);}
-	void tglAlarmPrd() 	{ PORTB ^= (1 << PB5); }
-	
-	void setAlarmPrm() 	{ PORTB |= (1 << PB4); }
-	void clrAlarmPrm() 	{ PORTB &= ~(1 << PB4);}
-	void tglAlarmPrm() 	{ PORTB ^= (1 << PB4); }
-	
-	void setAlarmDef() 	{ PORTF |= (1 << PF3); }
-	void clrAlarmDef() 	{ PORTF &= ~(1 << PF3);}
-	void tglAlarmDef() 	{ PORTF ^= (1 << PF3); }
-	
-	void setComPrd()	{ PORTF |= (1 << PF2); }
-	void clrComPrd()	{ PORTF &= ~(1 << PF2);}
-	void tglComPrd() 	{ PORTF ^= (1 << PF2); }
-	
-	void setComPrm()	{ PORTF |= (1 << PF1); }
-	void clrComPrm()	{ PORTF &= ~(1 << PF1);}
-	void tglComPrm() 	{ PORTF ^= (1 << PF1); }
-	
-	void setCf()		{ PORTF |= (1 << PF0); }
-	void clrCf()		{ PORTF |= (1 << PF0); }
-	void tglCf()	 	{ PORTF ^= (1 << PF0); }
-	
-// Работа с сигналами по маске, применяется для бит установленных в единицу 
-	void setMask(uint8_t mask) 		
-	{ 
-		PORTB |= (mask & 0x70); 
-		PORTF |= mask & 0x0F; 
-		
-		if (mask & 0x80)
-			setAlarm();
-	}
-	void clrMask(uint8_t mask)
-	{
-		PORTB &= ~(mask & 0x70);
-		PORTF &= ~(mask & 0x0F);
-		if (mask & 0x80)
-			clrAlarm();
-	}
+	/**	Установка сигналов по маске.
+	 *
+	 * 	Сигнал устанавливается в 1, для соответствующей 1 в маске.
+	 *
+	 * 	@param mask Маска сигналов.
+	 */
+	void setMask(uint8_t mask);
 
-	void tglMask(uint8_t mask)
-	{
-		PORTB ^= (mask & 0xF0);
-		PORTF ^= (mask & 0x0F);
+	/**	Сброс сигналов по маске.
+	 *
+	 * 	Сигнал устанавливается в 0, для соответствующей 1 в маске.
+	 *
+	 * 	@param mask Маска сигналов.
+	 */
+	void clrMask(uint8_t mask);
 
-	}
+	/**	Переключение сигналов по маске.
+	 *
+	 * 	Сигнал переключается, для соответствующей 1 в маске.
+	 *
+	 * 	@param mask Маска сигналов.
+	 */
+	void tglMask(uint8_t mask);
 	
-// 	Вывод значения на светодиоды
-	void setValue(uint8_t val)
-	{
-		uint8_t tmp;
-		
-		tmp = PORTB & 0x0F;
-		tmp += (val	^ 0x80) & 0xF0;
-		PORTB = tmp;
-		
-		tmp = PORTF & 0xF0;
-		tmp += val & 0x0F;
-		PORTF = tmp;
-	}	
+	/**	Установка сигналов.
+	 *
+	 * 	Сигналы устанавливаются в соответсвтии со значением \a val.
+	 *
+	 *	@param val Значение сигналов.
+	 */
+	void setValue(uint8_t val);
 	
 private:
+	/**	Включение светодиода.
+	 *
+	 * 	@param num Номер светодиода.
+	 */
+	void ledOn(uint8_t num);
+
+	/**	Выключение светодиода.
+	 *
+	 * 	@param num Номер светодиода.
+	 */
+	void ledOff(uint8_t num);
 	
+	/**	Переключение состояние светодиода.
+	 *
+	 * 	@param num Номер светодиода.
+	 */
+	void ledSwitch(uint8_t num);
+
 };
 
 #endif /* TSOUTBUS_H_ */
