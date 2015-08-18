@@ -8,7 +8,9 @@
 #include <util/delay.h>
 #include <stdint.h>
 
-#include "../inc/TTests.h"
+#include "TTests.h"
+#include "TM29f8000b.h"
+
 
 /**	Структура FSM для тестов.
  *
@@ -19,7 +21,7 @@ const TTests::SStateFSM TTests::FSM[TEST_MAX] = { 					//
 		{ &TTests::testSoutBus, {TEST_PLIS_REG, TEST_SOUT_BUS} },	//
 		{ &TTests::testRegPlis, {TEST_DATA_BUS,	TEST_PLIS_REG} }, 	//
 		{ &TTests::testDataBus, {TEST_FRAM,	    TEST_DATA_BUS} }, 	// нет у ГВ
-		{ &TTests::testFram, 	{TEST_2RAM, 	TEST_FRAM    } }, 	// нет, TODO переделать под ГВ
+		{ &TTests::testFram, 	{TEST_2RAM, 	TEST_FRAM	 } }, 	//
 		{ &TTests::test2Ram,	{TEST_EXT_BUS,	TEST_2RAM 	 } },	//
 		{ &TTests::testExtBus,  {TEST_EXT_BUS,  TEST_EXT_BUS } } 	//
 };
@@ -288,52 +290,80 @@ uint8_t TTests::testDataBus(uint8_t value=0) {
  *	@retval 1-бит Значение не совпало при считывании после записи всей FRAM.
  */
 
+static uint8_t buf[16];
 uint8_t TTests::testFram(uint8_t value=1) {
-	uint8_t val = 0;
-	uint8_t step = 5;
-	uint8_t error = 0;
-	volatile uint8_t * volatile const ptr = (uint8_t*) (FLASH_ADR);
 
+	typedef enum {
+		L_ERROR_NO 					= 0x00,	///< Ошибок нет.
+		L_ERROR_READ_IMMEDIATELY 	= 0x01,	///< Ошибка чтения байта сразу после записи.
+		L_ERROR_READ_LATER 			= 0x02,	///< Ошибка чтения байта после записи всех блоков.
+		L_ERROR_WRITE_BYTE			= 0x04,	///< Ошибка записи байта.
+		L_ERROR_BLOCK_ERASE			= 0x08	///< Ошибка очистки блока памяти.
+	} ELocalError;
+
+	uint8_t val = 0;
+	uint8_t step = 0;
+	uint8_t error = L_ERROR_NO;
+
+	PORTD |= 0x20;
 	SOut.setValue(TEST_FRAM);
+
+	setBlock(0);
 	plis->init = REG_INIT_FRAM_ENABLE;
 
 	while(1) {
-		rstExtWdt();
+		flashRead(0);
 
 		if (flag) {
-			if (step == 0) break;
+			if (error)
+				break;
 
 			flag = false;
-			step--;
+
 			SOut.tglMask(TEST_FRAM);
 
-			// проверка чтение/запись одного байта данных
-			// ^ (i >> 8) - надо для того, чтобы в память не писались
-			// повторяющиеся куски кода
-//			val = step;
-//			for(uint16_t i = 0; i < FLASH_SIZE; i++) {
-//				uint8_t tmp = val ^ i;
-//				val = pgm_read_byte(&crc8[tmp]);
-//				ptr[i] = val;
-//				if (val != ptr[i]) {
-//					error |= 1;
-//				}
-//				rstExtWdt();
-//			}
-//
-//			// проверка чтения всей памяти
-//			val = step;
-//			for(uint16_t i = 0; i < FLASH_SIZE; i++) {
-//				uint8_t tmp = val ^ i;
-//				val = pgm_read_byte(&crc8[tmp]);
-//				if (val != ptr[i]) {
-//					error |= 2;
-//				}
-//				rstExtWdt();
-//			}
+			if (step < NUM_BLOCKS) {
+				// очистка блоков памяти
+				if (eraseBlock(step) != ERROR_NO) {
+					error |= L_ERROR_BLOCK_ERASE;
+				}
+			} else if (step < NUM_BLOCKS*2) {
+				// запись всех блоков с првоеркой каждого записанного байте
+				setBlock(step%NUM_BLOCKS);
+				val = step%NUM_BLOCKS;
+
+				for(uint16_t i = 0; i < BLOCK_SIZE; i++) {
+					val += crc8[val];
+					if (flashProgramByte((uint16_t) i, val)) {
+						error |= L_ERROR_WRITE_BYTE;
+						break;
+					}
+					if (flashRead((uint16_t) i) !=  val) {
+						error |= L_ERROR_READ_IMMEDIATELY;
+						break;
+					}
+				}
+			} else if (step < NUM_BLOCKS*3) {
+				// проверка всех записанных блоков
+				setBlock(step%NUM_BLOCKS);
+				val = step%NUM_BLOCKS;
+
+				for(uint16_t i = 0; i < BLOCK_SIZE; i++) {
+					val += crc8[val];
+					if (flashRead((uint16_t) i) !=  val) {
+						error |= L_ERROR_READ_LATER;
+						break;
+					}
+				}
+			} else {
+				break;
+			}
+			step++;
 		}
+
 	}
 
+	setBlock(0);
 	plis->init = REG_INIT_FRAM_DISABLE;
 
 	if (error) {

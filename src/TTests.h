@@ -38,7 +38,7 @@ public:
 		plis = (SPlisRegister*) (PLIS_ADR);
 		ram = (S2RamRegister*) (RAM_ADR);
 
-		curTest = TEST_SOUT_BUS;
+		curTest = TEST_SOUT_BUS;	// TODO
 		error = 0;
 		flag = false;
 	}
@@ -58,7 +58,7 @@ public:
 	void main();
 
 	// Класс работы с шиной SOut
-		TSoutBus SOut;
+	TSoutBus SOut;
 
 private:
 

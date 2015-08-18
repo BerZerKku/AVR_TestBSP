@@ -3,8 +3,8 @@
 #include <util/delay.h>
 #include <stdint.h>
 
-#include "inc\TSoutBus.h"
-#include "inc\TTests.h"
+#include "TSoutBus.h"
+#include "TTests.h"
 
 #define INITSECTION __attribute__((section(".init3")))
 #define NOINIT	    __attribute__((section (".noinit")))
@@ -51,13 +51,26 @@ void low_level_init() {
 	DDRC  = 0x00;
     PORTC = 0xFF;
 
-    DDRD  = 0x00;
-    PORTD = 0x00;
+    // Порт D
+    // Назначение разрядов порта:
+    // Управляющие сигналы для FLASH
+    // PD4 : R/B# вход c подтяжкой
+    // PD5 : RP# выход
+    // PD7 : TEST выход
+    DDRD  = 0xA0;
+    PORTD = 0x10;
 
     DDRE  = 0x00;
     PORTE = 0x00;
 
-	DDRF = 0x00;
+    // Порт F
+    // Назначение разрядов порта:
+    // PF0-PF3 старшие разряды адреса для FLASH
+    // PF0 : A16
+    // PF1 : A17
+    // PF2 : A18
+    // PF3 : A19
+	DDRF = 0x0F;
 	PORTF = 0x00;
 
 	// Порт РG работает в режиме "шина управления"
@@ -73,7 +86,7 @@ void low_level_init() {
 
     //********** Внешняя память **********
 
-    XMCRA = 0x06;			// Один сектор без тактов ожидания
+    XMCRA = (1 << SRW11) | (1 << SRW10);	// Один сектор c макс ожиданием
     XMCRB = (1 << XMBK);	// 64К c запоминанием состояния шины
     MCUCR = (1 << SRE);     // Разрешение внешней памяти
 
