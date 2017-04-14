@@ -54,7 +54,7 @@
 #define BLOCK_SIZE (0xFFFF - (uint16_t) BASE_ADDR)
 
 /// Коды ошибок.
-typedef enum __attribute__ ((__packed__))  {
+typedef enum __attribute__ ((__packed__)) {
 	ERROR_NO 			= 0,	///< Ошибок нет.
 	ERROR_MANUFACTURER	= 1,	///< Ошибочный код производителя микросхемы.
 	ERROR_DEVICE		= 2,	///< Ошибочный код микросхемы памяти.
@@ -62,8 +62,17 @@ typedef enum __attribute__ ((__packed__))  {
 	ERROR_POLL			= 4,	///< Ошибка опроса микросхемы.
 	ERROR_PROGRAM_FAIL	= 5,	///< Ошибка записи.
 	ERROR_BLOCK_INVALID	= 6,	///< Ошибочный номер блока памяти.
-	ERROR_ERASE			= 7		///< Ошибка очистки микросхемы.
+	ERROR_ERASE			= 7,	///< Ошибка очистки микросхемы.
+	ERROR_BUFF_OVF		= 8		///< Ошибка переполение буфера.
 } EError;
+
+typedef enum __attribute__ ((__packed__)) {
+	STATE_CHECK_INIT	= 0,	///< Идет проверка микросхемы.
+	STATE_READ			= 1,	///< Чтение.
+	STATE_WRITE_PARAM	= 2,	///< Идет запись параметров.
+	STATE_WRITE_LOG		= 3,	///< Идет запись журнала.
+	STATE_ERASE_BLOCK	= 4		///< Идет очистка блока памяти.
+} EState;
 
 ///@}
 
@@ -77,6 +86,9 @@ extern EError flashProgramByte(uint16_t adr, uint8_t byte);
 extern EError flashProgramData(uint16_t adr, uint8_t buf[], uint8_t num);
 extern EError setBlock(uint8_t num);
 
+extern EError push(uint8_t byte);
+extern EError poll(void);
+extern EState getState(void);
 ///@}
 
 #endif /* TM29F8000B_H_ */

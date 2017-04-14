@@ -7,7 +7,21 @@
 
 #include <avr/io.h>
 #include <util/delay.h>
+#include <stdint.h>
+#include <stddef.h>
 #include "TM29f8000b.h"
+
+#define SIZE_BUF 1024
+
+static uint8_t pBuf[SIZE_BUF];
+static uint16_t u8BufNum = 0;
+static uint16_t u8BufCnt = 0;
+static EState eState = STATE_CHECK_INIT;
+static uint8_t u8cnt = 0;
+
+static uint16_t front = 0;
+static uint16_t rear = 0;
+
 
 /// \defgroup static_function Локальные функции
 ///@{
@@ -284,5 +298,60 @@ void flashReadReset(void) {
 	// Шаг 2. Пауза в 10 мкс.
 	/// @todo Паузу надо сделать через таймер.
 	_delay_us(10);
+}
+
+/**	Загрузка байта в буфер записи.
+ *
+ * 	@param[in] byte Байт данных.
+ * 	@return Код ошибки.
+ * 	@retval #ERROR_NO
+ * 	@retval #ERROR_BUFF_OVF
+ */
+EError push(uint8_t byte) {
+	if (u8BufNum >= SIZE_BUF)
+		return ERROR_BUFF_OVF;
+
+	// TODO критическая секция, защитить cnt от изменения!
+	pBuf[u8BufNum++] = byte;
+	return ERROR_NO;
+}
+
+/**	Работа с микросхемой.
+ *
+ */
+EError poll(void) {
+	uint8_t cnt = 0;
+	EError err = ERROR_NO;
+
+	if (cnt > 0) {
+		cnt--;
+	} else {
+		switch(eState) {
+			case STATE_READ:
+				// микросхема готова к чтению, ничего делать не надо.
+				break;
+
+			case STATE_WRITE_LOG:
+				// запись в журнал событий
+				break;
+
+			case STATE_WRITE_PARAM:
+				// запись параметров
+				break;
+
+			case STATE_ERASE_BLOCK:
+				// очистка блока
+
+				break;
+
+			case STATE_CHECK_INIT:
+				err = checkFlash();
+				if (err == ERROR_NO)
+					eState = STATE_READ;
+				break;
+		}
+	}
+
+	return err;
 }
 
